@@ -8,6 +8,7 @@
 
 Number.isNumString = s => !isNaN(Number(s))
 
+
 function CP(param) {
     return {
         _err(errType, require, exact) {
@@ -57,6 +58,7 @@ function CP(param) {
     }
 }
 
+
 // :: Render
 
 const
@@ -99,6 +101,18 @@ let R = {
     styl(b) { R._styl = b; return R },
     astyl(b) { R.styl(b); return R.apply() },
 
+    use(a) {
+        if (a) {
+            R._pos = a.pos ?? R._pos
+            R._pos.x = a.x ?? R._pos.x
+            R._pos.y = a.y ?? R._pos.y
+            R._fgc = a.fgc ?? R._fgc
+            R._bgc = a.bgc ?? R._bgc
+            R._styl = a.styl ?? R._styl
+        }
+        return R
+    },
+
     _esc(p) {
         if (! Array.isArray(p)) p = [ p ]
         let f = false, res = ""
@@ -109,10 +123,24 @@ let R = {
             }
         return f ? res + "m" : ""
     },
-    apply() {
+
+    apply(a, cb) {
+        if (a) R.use(a)
         process.stdout.write(R._esc([ R._styl, R._fgc == null ? null : 30 + R._fgc, R._bgc == null ? null : 40 + R._bgc ]))
+        if (typeof cb === "function") cb()
         return R
     },
+    atemp(a, cb) {
+        let o = {
+            x: R._pos.x, y: R._pos.y,
+            fgc: R._fgc, bgc: R._bgc,
+            styl: R._styl
+        }
+        R.apply(a)
+        cb()
+        return R.apply(o)
+    },
+
     reset() {
         process.stdout.write(R._esc(0))
         return R
@@ -145,6 +173,10 @@ class TDBZone {
         this.pa = null
         this.subz = []
         if (this.root) { this.rx = 0; this.ry = 0 }
+    }
+
+    spot(x, y, R) {
+        
     }
 
     zone = {
@@ -183,13 +215,19 @@ class ZBar extends TDBZone {
 
 // :: Debug
 
-R.astyl(RS.bold)
- .afgc(RC.red)
- .say("Ice")
- .afgc(RC.blue)
- .say("Lava")
- .pale()
+R
+.astyl(RS.bold)
+.afgc(RC.red)
+.say("Ice")
+.afgc(RC.blue)
+.say("Lava")
+.atemp(null, () => R
+    .afgc(RC.black)
+    .say(" in ")
+)
+.say("Terminal")
+.pale()
 
 const B = new ZBoard(30, 10)
-console.dir(new ZBar(3, 3, "trunc"))
+// console.dir(new ZBar(3, 3, "trunc"))
 
