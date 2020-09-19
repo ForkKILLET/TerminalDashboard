@@ -101,7 +101,9 @@ const
         blue:       4,
         magenta:    5,
         cyan:       6,
-        silver:     7
+        silver:     7,
+
+        _all: [ 1, 2, 3, 4, 5, 6, 7 ]
     },
     RS = {
         plain:      0,
@@ -112,7 +114,9 @@ const
         blink:      5,
         // Note: no 6,
         reverse:    7,
-        hide:       8
+        hide:       8,
+
+        _all: [ 1, 2, 3, 4, 5, 7, 8 ]
     };
 
 let R = {
@@ -325,7 +329,7 @@ class TDBZone {
         if (fillNow)
             for (let il = 0; il < this.len; il++) // FIXME: it seems go wrong here...
             for (let iw = 0; iw < this.width; iw++)
-                this.spot(" ", iw, il, null)
+                this.spot(" ", il, iw, null)
     }
 
     zone = {
@@ -348,9 +352,11 @@ class TDBZone {
 }
 
 class ZBoard extends TDBZone {
-    constructor(width, length, bg) {
-        super(true, width ?? 100, length ?? 25)
-        // TODO: bg
+    constructor(width, len, bgc) {
+        super(true, width ?? 100, len ?? 25)
+        
+        bgc = CP(bgc, "ZBoard").in(RC._all).o
+        this.bgcDft(bgc, true)
     }
 }
 
@@ -390,19 +396,21 @@ class ZBar extends TDBZone {
 // :: Main
 
 R.go(true, async () => {
-    const B = new ZBoard(30, 10)
-    // B.bgcDft(RC.black, true)
+    const B = new ZBoard(30, 10, RC.silver)
+
+    R.atemp(null, () => R.apos(0, 9).say("<C-c> exit"))
+
     
     const barTitle = new ZBar(10, 10, "trunc")
     B.zone.mnt(barTitle, 0, 0)
     
     barTitle.text("Dashboard?", { styl: RS.reverse, fgc: null, bgc: RC.black })
-    R.apos(0, 1)
+    R.apos(0, 10)
 
     await R.sleep(2000)
 
     barTitle.bgcDft(RC.cyan)
     barTitle.text("Dashboard!")
-    R.apos(0, 1)
+    R.apos(0, 10)
 })
 
