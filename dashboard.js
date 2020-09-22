@@ -14,20 +14,44 @@ Number.isNumString = s => !isNaN(Number(s))
 Error.em = (title, msg) => Error(`\x1B[31m[${title}] ${msg}\x1B[0m`)
 Error.unreachable = () => Error.em("???", "It's unreachable! You can never see this f**king error!")
 
+Date.prototype.fommat = function(f) {
+    const re = {
+        "y+": this.getFullYear(),
+        "m+": this.getMonth() + 1,
+        "d+": this.getDate(),
+        "H+": this.getHours(),
+        "M+": this.getMinutes(),
+        "S+": this.getSeconds(),
+        "s" : this.getMilliseconds()
+    }
+    for (let r in re) if (RegExp(`(${r})`).test(f))
+        f = f.replace(RegExp.$1,
+            ("000" + re[r]).substr((re[r].toString()).length + 3  - RegExp.$1.length)
+        )
+    return f
+}
+Date.fromTimeZone = n => new Date(new Date().getTime() + n * 60 * 60 * 1000)
+
+const EF = _ => {}
+
+// :: CheckParam
+
 function CP(param, name) {
+// TODO: info for one-pass check
+//       e.g. (for nullable) Param p requires null or ...
     return {
         _err(errType, require, exact) {
             throw Error.em("CP", `Param ${name} requires ${errType} ${require}, but got ${exact}.`)
         },
         o: param,
         n: name,
-        _npass: false,
+        _pass: false,
 
-        nullable() {
-            if (this.o == null) this._npass = true
+        nullable() { if (this._pass) return this
+            if (this.o == null) this._pass = true
             return this
         },
-        type(ts, soft) { if (this._npass) return this
+        type(ts, soft) { if (this._pass) return this
             const tt = typeof this.o
             if (! Array.isArray(ts)) ts = [ ts ]
             let f = false
@@ -46,29 +70,29 @@ function CP(param, name) {
             }
             return f ? this : this._err("type", `[${ts.join(" ")}]`, `[${typeof p}]`)
         },
-        ctype(c) { if (this._npass) return this
+        ctype(c) { if (this._pass) return this
             return (this.o instanceof c) ? this : this._err("class", `[${c.name}]`, `[${Object.getPrototypeOf(this.o).constructor.name}]`)
         },
 
-        lt(n, eq) { if (this._npass) return this
+        lt(n, eq) { if (this._pass) return this
             return (this.o < n || eq && this.o == n) ? this : this._err("math range", `p ${eq ? "<=" : "<"} ${n}`, this.o )
         },
-        gt(n, eq) { if (this._npass) return this
+        gt(n, eq) { if (this._pass) return this
             return (this.o > n || eq && this.o == n) ? this : this._err("math range", `p ${eq ? ">=" : ">"} ${n}`, this.o) 
         }, 
-        ltg(l, r) { if (this._npass) return this
+        ltg(l, r) { if (this._pass) return this
             return (this.o > l && this.o < r) ? this : this._err("range", `${l} < p < ${r}`, this.o)
         },
-        pos() { if (this._npass) return this
+        pos() { if (this._pass) return this
             return this.gt(0) },
-        pos0() { if (this._npass) return this
+        pos0() { if (this._pass) return this
             return this.gt(0, true) },
-        neg() { if (this._npass) return this
+        neg() { if (this._pass) return this
             return this.lt(0) },
-        neg0() { if (this._npass) return this
+        neg0() { if (this._pass) return this
             return this.lt(0, true) },
 
-        len(l, r) { if (this._npass) return this
+        len(l, r) { if (this._pass) return this
             let n = this.o?.length
             if (n == null) this._err("length", "...", "N/A")
             return r == null
@@ -76,11 +100,19 @@ function CP(param, name) {
                 : (n >= l && n <= r ? this : this._err("length", `${l} <= l <= ${r}`))
         },
 
-        eq(n) { // Note: who will use this?
+        eq(n) { if (this._pass) return this
             return (this.o == n) ? this : this._err("range", `p = ${n}`, this.o)
         },
-        in(a) {
+        justeq(n) { if (this._pass) return thiys
+            if (n === this.o) this._pass = true
+            return this
+        },
+        in(a) { if (this._pass) return this
             return (a.includes(this.o)) ? this : this._err("range in", "\n" + JSON.stringify(a, null, 4) + "\n", this.o)
+        },
+        justin(a) { if (this._pass) return this
+            if (a.includes(this.o)) this._pass = true
+            return this
         }
     }
 }
@@ -371,6 +403,8 @@ class Zone {
             z.rx = this.rx + x
             z.ry = this.ry + y
             z.pa = this
+
+            z.on("mnt")()
             
             this.subz.push(z)
             return this.subz.length - 1
@@ -378,6 +412,14 @@ class Zone {
         um: id => {
             // TODO
         }
+    }
+
+    on(evt, f) {
+        if (typeof f === "function") this._on[evt] = f
+        else return this._on[evt] ?? EF
+    }
+    _on = {
+        mnt: null
     }
 }
 
@@ -391,10 +433,12 @@ class ZBoard extends Zone {
 }
 
 class ZBar extends Zone {
-    constructor(hei, minHei, overflow) {
-        super(false, hei, 1)
-        // TODO: this.minHei       = CP(minW, "ZBar.constructor^minW").type("number", true).pos().o
+    constructor(len, stretch, overflow) {
+        super(false, len, 1)
         this.overflow   = CP(overflow, "ZBar.constructor^overflow#overflow behavior").type("string").in([ "trunc", "...", "error" ]).o
+        this.stretch    = CP(stretch, "ZBar.constructor^stretch#if stretch").type("boolean").o
+
+        if (this.stretch) this.on("mnt", () => this.len = this.pa.len)
     }
     
     #t = ""
@@ -415,6 +459,7 @@ class ZBar extends Zone {
                         throw Error.unreachable()
                 }
             }
+            t = t + " ".repeat(this.len - t.length)
             this.#t = t
             for (let i = 0; i < t.length; i++)
                 this.spot(t[i], i, 0, Ra)
@@ -426,22 +471,23 @@ class ZBar extends Zone {
 // :: Main
 
 if (module === require.main) R.go(true, async () => {
-    const B = new ZBoard(30, 10, RC.silver)
+    const B = new ZBoard(60, 20, RC.silver)
 
     R.atemp(null, () => R.apos(B.pos.bottomLeft()).say("<C-c> exit"))
 
     
-    const barTitle = new ZBar(10, 10, "trunc")
+    const barTitle = new ZBar(1, true, "trunc")
     B.zone.mnt(barTitle, 0, 0)
-    
-    barTitle.text("Dashboard?", { styl: RS.reverse, fgc: null, bgc: RC.black })
+
+    barTitle.bgcDft(RC.cyan)
+    barTitle.text("Dashboard! -- ForkKILLET")
     R.apos(B.pos.bottomLeft(0, 1))
 
     await R.sleep(2000)
 
-    barTitle.bgcDft(RC.cyan)
-    barTitle.text("Dashboard!")
-    R.apos(B.pos.bottomLeft(0, 1))
+    setInterval(() => {
+        barTitle.text("[Time] " + Date.fromTimeZone(+8).fommat("yyyy.mm.dd; HH:MM:SS"))
+    }, 1000)
 })
 
 // :: Export
