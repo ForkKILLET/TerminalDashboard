@@ -4,12 +4,8 @@
 
 // :: Import
 
-// Disable:
-// const exec = require('child_process').exec
-
-const
-    keypress = require('keypress'),
-    tty = require('tty')
+const keypress = require('keypress')
+const tty = require('tty')
 
 // :: Tools
 
@@ -89,7 +85,6 @@ function CP(param, name) {
     }
 }
 
-
 // :: Re[na]der
 
 const
@@ -120,8 +115,12 @@ const
     };
 
 let R = {
-    _pos:   { x: null, y: null },
-    pos(x, y) { R._pos.x = x, R._pos.y = y; return R },
+    _pos: { x: null, y: null },
+    pos(x, y) {
+        if (typeof x === "object") { R._pos.x = x.x; R._pos.y = x.y }
+        else { R._pos.x = x; R._pos.y = y}
+        return R
+    },
     apos(x, y) { R.pos(x, y); return R.apply() },
 
     _fgc: RC.black,
@@ -267,7 +266,7 @@ let R = {
         return R
     },
     sleep(time) {
-        return new Promise((resolve) => setTimeout(resolve, time))
+        return new Promise(resolve => setTimeout(resolve, time))
     },
 
     _test() {
@@ -292,16 +291,16 @@ let R = {
 
 // :: Zone
 
-class TDBZone {
-    constructor(root, len, width) {
-        this.root   = CP(root, "TDBZone.constructor^root#is root zone").type("boolean").o
+class Zone {
+    constructor(root, len, hei) {
+        this.root   = CP(root, "Zone.constructor^root#is root zone").type("boolean").o
         // Note:
         //     l
         //   +--->
         // w |
         //   v   .
-        this.len    = CP(len, "TDBZone.constructor^len").type("number", true).pos().o
-        this.width  = CP(width, "TDBZone.constructor^length").type("number", true).pos().o
+        this.len    = CP(len, "Zone.constructor^len").type("number", true).pos().o
+        this.hei  = CP(hei, "Zone.constructor^length").type("number", true).pos().o
         
         this.pa = null
         this.subz = []
@@ -311,12 +310,12 @@ class TDBZone {
     }
 
     spot(ch, x, y, Ra) {
-        if (! this.pa && ! this.root) throw Error.em("TDBZone.spot", "Unmounted and non-root zone.")
+        if (! this.pa && ! this.root) throw Error.em("Zone.spot", "Unmounted and non-root zone.")
 
-        ch  = CP(ch, "TDBZone:.spot^ch").type("string").len(1).o
-        x   = CP(x, "TDBZone:.spot^x").type("number").pos0().lt(this.len).o
-        y   = CP(y, "TDBZone:.spot^y").type("number").pos0().lt(this.width).o
-        Ra  = CP(Ra, "TDBZone:.spot^Ra#Render attribute").nullable().type("object").o
+        ch  = CP(ch, "Zone:.spot^ch").type("string").len(1).o
+        x   = CP(x, "Zone:.spot^x").type("number").pos0().lt(this.len).o
+        y   = CP(y, "Zone:.spot^y").type("number").pos0().lt(this.hei).o
+        Ra  = CP(Ra, "Zone:.spot^Ra#Render attribute").nullable().type("object").o
 
         const Ra_ = Object.assign({}, Ra, { x: this.rx + x, y: this.ry + y, bgc: this.bgcD })
         R.atemp(Ra_, () => R.say(ch))
@@ -324,19 +323,50 @@ class TDBZone {
     }
 
     bgcDft(c, fillNow) {
-        this.bgcD = CP(c, "TDBZone:.bgcDft^c#color code").type("number").o
+        this.bgcD = CP(c, "Zone:.bgcDft^c#color code").type("number").o
 
         if (fillNow)
             for (let il = 0; il < this.len; il++) // FIXME: it seems go wrong here...
-            for (let iw = 0; iw < this.width; iw++)
+            for (let iw = 0; iw < this.hei; iw++)
                 this.spot(" ", il, iw, null)
+    }
+
+    border(borderCfg) {
+        if (typeof borderCfg === "object") {
+            
+        }
+    }
+
+    pos = {
+        _dftD: {
+            topLeft:        { x: 0, y: 0 },
+            topRight:       { x: -1, y: 0 },
+            bottomLeft:     { x: 0, y: -1 },
+            bottomRight:    { x: -1, y: -1 }
+        },
+        topLeft:        (dx, dy) => ({
+            x: this.rx + (dx ?? this.pos._dftD.topLeft.x),
+            y: this.ry + (dy ?? this.pos._dftD.topLeft.y)
+        }),
+        topRight:       (dx, dy) => ({
+            x: this.rx + this.len + (dx ?? this.pos._dftD.topRight.x),
+            y: this.ry + (dy ?? this.pos._dftD.topRight.y)
+        }),
+        bottomLeft:     (dx, dy) => ({
+            x: this.rx + (dx ?? this.pos._dftD.bottomLeft.x),
+            y: this.ry + this.hei + (dy ?? this.pos._dftD.bottomLeft.y)
+        }),
+        bottomRight:    (dx, dy) => ({
+            x: this.rx + this.len + (dx ?? this.pos._dftD.bottomRight.x),
+            y: this.ry + this.hei + (dy ?? this.pos._dftD.bottomRight.y)
+        })
     }
 
     zone = {
         mnt: (z, x, y) => {
-            z = CP(z, "TDBZone:.zone.mnt^z#TDB zone").ctype(TDBZone).o
-            x = CP(x, "TDBZone:.zone.mnt^x").type("number").pos0().lt(this.len).o
-            y = CP(y, "TDBZone:.zone.mnt^y").type("number").pos0().lt(this.width).o
+            z = CP(z, "Zone:.zone.mnt^z#TDB zone").ctype(Zone).o
+            x = CP(x, "Zone:.zone.mnt^x").type("number").pos0().lt(this.len).o
+            y = CP(y, "Zone:.zone.mnt^y").type("number").pos0().lt(this.hei).o
 
             z.rx = this.rx + x
             z.ry = this.ry + y
@@ -351,19 +381,19 @@ class TDBZone {
     }
 }
 
-class ZBoard extends TDBZone {
-    constructor(width, len, bgc) {
-        super(true, width ?? 100, len ?? 25)
+class ZBoard extends Zone {
+    constructor(hei, len, bgc) {
+        super(true, hei ?? 100, len ?? 25)
         
         bgc = CP(bgc, "ZBoard").in(RC._all).o
         this.bgcDft(bgc, true)
     }
 }
 
-class ZBar extends TDBZone {
-    constructor(width, minW, overflow) {
-        super(false, width, 1)
-        // TODO: this.minW       = CP(minW, "ZBar.constructor^minW").type("number", true).pos().o
+class ZBar extends Zone {
+    constructor(hei, minHei, overflow) {
+        super(false, hei, 1)
+        // TODO: this.minHei       = CP(minW, "ZBar.constructor^minW").type("number", true).pos().o
         this.overflow   = CP(overflow, "ZBar.constructor^overflow#overflow behavior").type("string").in([ "trunc", "...", "error" ]).o
     }
     
@@ -379,7 +409,7 @@ class ZBar extends TDBZone {
                         t = (t.substring(0, this.len - 3) + "...").substring(0, this.len)
                         break
                     case "error":
-                        throw Error.em("ZBar.text", `Text length: ${t.length}, overflows. Zbar length: ${this.len}`)
+                        throw Error.em("ZBar.text", `Text length: ${t.length}, overflows. ZBar length: ${this.len}`)
                         break
                     default:
                         throw Error.unreachable()
@@ -395,22 +425,30 @@ class ZBar extends TDBZone {
 
 // :: Main
 
-R.go(true, async () => {
+if (module === require.main) R.go(true, async () => {
     const B = new ZBoard(30, 10, RC.silver)
 
-    R.atemp(null, () => R.apos(0, 9).say("<C-c> exit"))
+    R.atemp(null, () => R.apos(B.pos.bottomLeft()).say("<C-c> exit"))
 
     
     const barTitle = new ZBar(10, 10, "trunc")
     B.zone.mnt(barTitle, 0, 0)
     
     barTitle.text("Dashboard?", { styl: RS.reverse, fgc: null, bgc: RC.black })
-    R.apos(0, 10)
+    R.apos(B.pos.bottomLeft(0, 1))
 
     await R.sleep(2000)
 
     barTitle.bgcDft(RC.cyan)
     barTitle.text("Dashboard!")
-    R.apos(0, 10)
+    R.apos(B.pos.bottomLeft(0, 1))
 })
+
+// :: Export
+
+module.exports = {
+    CP,
+    R, RC, RS,
+    Zone, ZBoard, ZBar
+}
 
