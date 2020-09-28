@@ -30,6 +30,8 @@ Date.fromTimeZone = n => new Date(Date.now() + n * 60 * 60 * 1000)
 
 // :::: Tool    lv.0
 
+function callW(f) { return (...p) => f(...p) }
+
 function keyOf(key, src, dftKey) {
     return (src ? src[key] : null) ?? src[dftKey]
 }
@@ -48,6 +50,9 @@ class _c_this {
 
     func        = this._w_basicT("function")
     fun         = this.func
+
+    object      = this._w_basicT("object")
+    obj         = this.object
 
     //////////
 
@@ -99,14 +104,14 @@ class _c_this {
     //////////
 
     nan         = x => isNaN(x)
-    int         = x => Is.number(x) && (x % 1 === 0)
+    int         = x => this.number(x) && (x % 1 === 0)
 
-    pos         = x => Is.number(x) && x > 0
-    pos0        = x => Is.number(x) && x >= 0
-    neg         = x => Is.number(x) && x < 0
-    neg0        = x => Is.number(x) && x <= 0
+    pos         = x => this.number(x) && x > 0
+    pos0        = x => this.number(x) && x >= 0
+    neg         = x => this.number(x) && x < 0
+    neg0        = x => this.number(x) && x <= 0
     
-    numstr      = x => Is.number(x) || (Is.string(x) && !Is.nan(Number(x)))
+    numstr      = x => this.number(x) || (this.string(x) && !this.nan(Number(x)))
     
     //////////
 
@@ -114,6 +119,9 @@ class _c_this {
     undef       = x => x === undefined
     empty       = x => x == null
     fake        = x => !x
+
+    objectR     = x => this.object(x) && ! this.nul(x)
+    objR        = this.objectR
 
     //////////
 
@@ -250,6 +258,7 @@ async function ajax(tar, encode = "utf8", http_) {
 
 module.exports = {
     Is, EF, CP,
+    callW, keyOf,
     ajax
 }
 
