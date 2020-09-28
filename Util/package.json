@@ -1,0 +1,11 @@
+{
+  "name": "fkutil",
+  "version": "1.0.0",
+  "description": "ForkKILLET's Utilities",
+  "main": "fkutil.js",
+  "scripts": {
+    "test": "echo qwq"
+  },
+  "author": "ForkKILLET",
+  "license": "ISC"
+}
