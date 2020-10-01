@@ -8,7 +8,7 @@ const keypress      = require("keypress")
 const tty           = require("tty")
 const {
     Is, CP
-}                   = require("./Util/fkutil")
+}                   = require("fkutil/fkutil")
 
 const debug = true
 
@@ -26,7 +26,8 @@ const
         silver:     7,      Lsilver:    15,
 
         sky:        195,
-        white:      231,    snow:       255
+        toxic:      93,
+        white:      231,    snow:   255,
     },
     RS = {
         plain:      0,
@@ -278,7 +279,7 @@ class Zone {
             this.spot(" ", il, iw, null)
     }
 
-    border(b) {
+    border(b, Ra) {
         const _b = {
             topLeft:        { ch: "╭", req: [ "topEdge", "leftEdge" ]                        ,
                               from: [ "topLeft", 0, 0 ]                                     },
@@ -298,7 +299,11 @@ class Zone {
                               from: [ "bottomRight", 0, 0 ]                                 }
         }
         
-        for (let i in _b) b[i] = (b[i] === undefined ? { ch: _b[i].ch } : b[i])
+        for (let i in _b) {
+            if (Is.nul(b[i])) continue
+            if (Is.udf(b[i])) b[i] = {}
+            if (Is.empty(b[i].ch)) b[i].ch = _b[i].ch
+        }
 
         if (b && Is.obj(b)) for (let i in _b) {
             // Note: Make nearby empty edge(s) blank when some corner is not empty.
@@ -312,7 +317,7 @@ class Zone {
             this.line(b[i].ch,
                 this.pos[_b[i].from[0]](_b[i].from[1], _b[i].from[2], false),
                 _b[i].to ? this.pos[_b[i].to[0]](_b[i].to[1], _b[i].to[2], false) : null,
-                b[i].Ra
+                b[i].Ra ?? Ra
             )
         }
     }
@@ -421,7 +426,10 @@ class ZBar extends Zone {
 
 if (module === require.main) R.go(true, async() => {
     const B = new ZBoard(60, 20, RC.snow)
-    B.border({})
+    B.border({
+        topLeft:        { ch: "┌" },
+        bottomRight:    { ch: "┘" }
+    }, { fgc: RC.toxic })
 
     R.atemp(null, () => { R
         .apos(B.pos.bottomLeft())

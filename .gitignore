@@ -1,9 +1,8 @@
-node_modules/
+node_modules/keypress/
 
 test/
 
 out
-
 
 .*.swp
 *.swp
