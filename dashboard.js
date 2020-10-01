@@ -7,7 +7,7 @@
 const keypress      = require("keypress")
 const tty           = require("tty")
 const {
-    Is, CP
+    Is, Cc
 }                   = require("fkutil/fkutil")
 
 const debug = true
@@ -135,7 +135,7 @@ let R = {
             return [ -1, null ]
         },
         add(d, cb) {
-            d = CP(d, "R.read.add^d#descriptor").type([ "boolean", "object" ]).o
+            d = Cc(d, "R.read.add^d#descriptor").types("bool", "object").r
             R.read._rs.push((ch, info) => {
                 if (d === true) cb(ch, info)
                 else if (Is.objR(d)) {
@@ -224,14 +224,14 @@ let R = {
 
 class Zone {
     constructor(root, len, hei) {
-        this.root   = CP(root, "Zone.constructor^root#is root zone").type("boolean").o
+        this.root   = Cc(root, "Zone.constructor^root#is root zone").bool().r
         // Note:
         //     l
         //   +--->
         // w |
         //   v   .
-        this.len    = CP(len, "Zone.constructor^len").type("number", true).pos().o
-        this.hei  = CP(hei, "Zone.constructor^length").type("number", true).pos().o
+        this.len    = Cc(len, "Zone.constructor^len").smartype("number").pos().r
+        this.hei    = Cc(hei, "Zone.constructor^length").smartype("number").pos().r
         
         this.pa = null
         this.subz = []
@@ -241,10 +241,10 @@ class Zone {
     spot(ch, x, y, Ra) {
         if (! this.pa && ! this.root) throw Error.em("Zone.spot", "Unmounted and non-root zone.")
 
-        ch  = CP(ch, "Zone:.spot^ch").type("string").len(1).o
-        x   = CP(x, "Zone:.spot^x").type("number").pos0().lt(this.len).o
-        y   = CP(y, "Zone:.spot^y").type("number").pos0().lt(this.hei).o
-        Ra  = CP(Ra, "Zone:.spot^Ra#Render attribute").nullable().type("object").o
+        ch  = Cc(ch, "Zone:.spot^ch").char().r
+        x   = Cc(x, "Zone:.spot^x").num().pos0().lt(this.len).r
+        y   = Cc(y, "Zone:.spot^y").num().pos0().lt(this.hei).r
+        Ra  = Cc(Ra, "Zone:.spot^Ra#Render attribute").nullable().obj().r
 
         const Ra_ = Object.assign({}, Ra, { x: this.rx + x, y: this.ry + y, bgc: this._bgc })
         R.atemp(Ra_, () => R.say(ch))
@@ -272,7 +272,7 @@ class Zone {
 
     _bgc = null
     bgcDft(c) {
-        this._bgc = CP(c, "Zone:.bgcDft^c#color code").type("number").o
+        this._bgc = Cc(c, "Zone:.bgcDft^c#color code").num().r
 
         for (let il = 0; il < this.len; il++) // FIXME: it seems go wrong here...
         for (let iw = 0; iw < this.hei; iw++)
@@ -349,9 +349,9 @@ class Zone {
         mnt: (z, x, y) => {
             if (Is.objR(x)) { y = x.y; x = x.x }
 
-            z = CP(z, "Zone:.zone.mnt^z#TDB zone").ctype(Zone).o
-            x = CP(x, "Zone:.zone.mnt^x").type("number").pos0().lt(this.len).o
-            y = CP(y, "Zone:.zone.mnt^y").type("number").pos0().lt(this.hei).o
+            z = Cc(z, "Zone:.zone.mnt^z#TDB zone").insts(Zone).r
+            x = Cc(x, "Zone:.zone.mnt^x").num().pos0().lt(this.len).r
+            y = Cc(y, "Zone:.zone.mnt^y").num().pos0().lt(this.hei).r
 
             z.rx = this.rx + x
             z.ry = this.ry + y
@@ -380,7 +380,7 @@ class ZBoard extends Zone {
     constructor(hei, len, bgc) {
         super(true, hei ?? 100, len ?? 25)
         
-        bgc = CP(bgc, "ZBoard").leg(0, 255).o
+        bgc = Cc(bgc, "ZBoard").lege(0, 255).r
         this.bgcDft(bgc, true)
     }
 }
@@ -388,8 +388,8 @@ class ZBoard extends Zone {
 class ZBar extends Zone {
     constructor(len, stretch, overflow) {
         super(false, len, 1)
-        this.overflow   = CP(overflow, "ZBar.constructor^overflow#overflow behavior").type("string").in([ "trunc", "...", "error" ]).o
-        this.stretch    = CP(stretch, "ZBar.constructor^stretch#if stretch").type("boolean").o
+        this.overflow   = Cc(overflow, "ZBar.constructor^overflow#overflow behavior").among("trunc", "...", "error").r
+        this.stretch    = Cc(stretch, "ZBar.constructor^stretch#if stretch").bool().r
 
         if (this.stretch) this.on("mnt", () => this.len =
             this.pa.len - this.pa.pos._bd.topLeft.x + this.pa.pos._bd.topRight.x)
@@ -456,7 +456,6 @@ if (module === require.main) R.go(true, async() => {
 // :: Export
 
 module.exports = {
-    CP,
     R, RC, RS,
     Zone, ZBoard, ZBar
 }
