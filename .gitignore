@@ -1,4 +1,5 @@
-node_modules/keypress/
+/node_modules/
+!/node_modules/fkutil/
 
 test/
 

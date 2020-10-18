@@ -10,7 +10,7 @@ Developing.
 
 ```plain
 $ git clone https://github.com/ForkFG/FkNodeUtil.git
-$ npm install git+https://git@github.com/ForkFG/FkNodeUtil.git
+$ npm install -S fkutil
 $ node dashboard.js
 ```
 

@@ -12,38 +12,120 @@ const {
 
 const debug = true
 
-// :: Re[na]der
+class L {
+    constructor({ wrap, init }) {
+        this.wrap   = Cc(wrap, "L.constructor^.wrap#listener wrapper").fun().r
+        init        = Cc(init, "L.constructor^.init#initialize").fun().r
+        init(this)
+    }
 
-const
-    RC = {
-        black:      0,      grey:       8,
-        red:        1,      Lred:       9,
-        green:      2,      Lgreen:     10,
-        yellow:     3,      Lyellow:    11,
-        blue:       4,      Lblue:      12,
-        magenta:    5,      Lmagenta:   13,
-        cyan:       6,      Lcyan:      14,
-        silver:     7,      Lsilver:    15,
+    _l = []
+    _find(n) {
+        for (let i in this._l)
+            if (this._l[i]?.what === n) return [ i, this._l[i] ]
+        return [ null, null ]
+    }
 
-        sky:        195,
-        toxic:      93,
-        white:      231,    snow:   255,
+    add(d, cb) {
+        d = Cc(d, "L:.add^d#descriptor").types("bool", "object").r
+        this._l.push(this.wrap(d, cb))
+    }
+    rm(n) {
+        const [i] = this._find(n)
+        if (Is.nul(i)) return false
+        this._l.splice(i, 1)
+        return true
+    }
+    dis(n) {
+        const [ i, r ] = this._find(n)
+        if (Is.nul(i)) return false
+        r.hang = true
+        return true
+    }
+    en(n) {
+        const [ i, r ] = this._find(n)
+        if (Is.nul(i)) return false
+        r.hang = false
+        return true
+    }
+}
+const LK = new L({
+    init: that => {
+        const i = process.stdin
+        keypress(i)
+        i.on("keypress", (ch, info) => that._l.forEach(f => f(ch, info)))
+        i.setRawMode(true)
     },
-    RS = {
-        plain:      0,
-        bold:       1,
-        faint:      2,
-        italic:     3,
-        underline:  4,
-        blink:      5,
-        // Note: no 6,
-        reverse:    7,
-        hide:       8,
+    wrap: (d, cb) => (ch, info) => {
+        if (d === true || (Is.objR(d)   &&
+            ! d.hang                    &&
 
-        _all: [ 1, 2, 3, 4, 5, 7, 8 ]
-    };
+            ! (d.ctrl ^ info?.ctrl)     &&
+            ! (d.shift ^ info?.shift)   &&
+            ! (d.meta ^ info?.meta)     && // Note: Useless for macOS.
 
-let R = {
+            (! d.key || d.key === ch)             &&
+            (! d.name || d.name === info.name)    &&
+            (! d.seq || d.seq === info.sequence)
+        )) cb(ch, info)
+    }
+})
+const LS = new L({
+    init: that => {},
+    wrap: (d, cb) => {
+        if (Is.str(d?.signal) && d.signal.match(/^SIG[A-Z]+$/))
+            process.on(d.signal, s => cb(s))
+    }
+})
+
+// :: Render
+
+const RC = {
+    black:      0,      grey:       8,
+    red:        1,      Lred:       9,
+    green:      2,      Lgreen:     10,
+    yellow:     3,      Lyellow:    11,
+    blue:       4,      Lblue:      12,
+    magenta:    5,      Lmagenta:   13,
+    cyan:       6,      Lcyan:      14,
+    silver:     7,      Lsilver:    15,
+
+    sky:        195,
+    toxic:      93,
+    white:      231,    snow:   255,
+}
+const RS = {
+    plain:      0,
+    bold:       1,
+    faint:      2,
+    italic:     3,
+    underline:  4,
+    blink:      5,
+    // Note: no 6,
+    reverse:    7,
+    hide:       8,
+
+    _all: [ 1, 2, 3, 4, 5, 7, 8 ]
+}
+const RB = {
+    topLeft:        { ch: "╭", req: [ "topEdge", "leftEdge" ]                            ,
+                      from: [ "topLeft", 0, 0 ]                                         },
+    topEdge:        { ch: "─", d:   d => { d.topLeft.y = +1;    d.topRight.y = +1       },
+                      from: [ "topLeft", 1, 0 ],    to: [ "topRight", -1, 0 ]           },
+    topRight:       { ch: "╮", req: [ "topEdge", "rightEdge" ]                           ,
+                      from: [ "topRight", 0, 0 ]                                        },
+    leftEdge:       { ch: "│", d:   d => { d.topLeft.x = +1;    d.bottomLeft.x = +1     },
+                      from: [ "topLeft", 0, 1 ],    to: [ "bottomLeft", 0, -1 ]         },
+    rightEdge:      { ch: "│", d:   d => { d.topRight.x = -1;   d.bottomRight.x = -1    },
+                      from: [ "topRight", 0, 1 ],   to: [ "bottomRight", 0, -1 ]        },
+    bottomLeft:     { ch: "╰", req: [ "bottomEdge", "leftEdge" ]                         ,
+                      from: [ "bottomLeft", 0, 0 ]                                      },
+    bottomEdge:     { ch: "─", d:   d => { d.bottomLeft.y = -1; d.bottomRight.y = -1    },
+                      from: [ "bottomLeft", 1, 0 ], to: [ "bottomRight", -1, 0 ]        },
+    bottomRight:    { ch: "╯", req: [ "bottomEdge", "rightEdge" ]                        ,
+                      from: [ "bottomRight", 0, 0 ]                                     }
+}
+const R = {
     _pos: { x: null, y: null },
     pos(x, y) {
         if (Is.objR(x)) { R._pos.x = x.x; R._pos.y = x.y }
@@ -77,14 +159,13 @@ let R = {
     },
 
     _esc(p, t) {
-        if (! Array.isArray(p)) p = [ p ]
-        let f = false, res = ""
-        for (let i of p)
-            if (i != null) {
-                res += (f ? ";" : "\x1B[") + i
-                f = true
-            }
-        return f ? res + t : ""
+        p = Array.fromElementOrArray(p)
+        let f = false, ret = ""
+        for (let i of p) if (Is.num(i)) {
+            ret += (f ? ";" : "\x1B[") + i
+            f = true
+        }
+        return f ? ret + t : ""
     },
 
     apply(a, cb) {
@@ -94,10 +175,8 @@ let R = {
             R._esc([
                 0,                                      // Clear appearance settings
                 R._styl,                                // Set style
-                38, 5,                                  // Set foreground color (256)
-                (R._fgc == null ? null : R._fgc),
-                48, 5,                                  // Set background color (256)
-                (R._bgc == null ? null : R._bgc)
+                38, 5, R._fgc,                          // Set foreground color (256)
+                48, 5, R._bgc,                          // Set background color (256)
             ], "m")
         )
         if (Is.fun(cb)) cb()
@@ -119,104 +198,34 @@ let R = {
         return R
     },
     clear() {
-        process.stdout.write(R._esc("2", "J"))
+        process.stdout.write(R._esc(2, "J"))
         return R
     },
     say(t) {
         process.stdout.write(t)
         return R
     },
-    
-    read: {
-        _rs: [],
-        _find(n) {
-            for (let i in R.read._rs)
-                if (R.read._rs[i]?.name === n) return [ i, R.read._rs[i] ]
-            return [ -1, null ]
-        },
-        add(d, cb) {
-            d = Cc(d, "R.read.add^d#descriptor").types("bool", "object").r
-            R.read._rs.push((ch, info) => {
-                if (d === true) cb(ch, info)
-                else if (Is.objR(d)) {
-                    if (! d.hang                    &&
-
-                        ! (d.ctrl ^ info?.ctrl)     &&
-                        ! (d.shift ^ info?.shift)   &&
-                        ! (d.meta ^ info?.meta)     && // Note: almost useless
-
-                        (! d.key || d.key === ch)             &&
-                        (! d.name || d.name === info.name)    &&
-                        (! d.seq || d.seq === info.sequence)
-                    ) cb(ch, info)
-                }
-            })
-        },
-        hang(n) {
-            const [, r ] = this._find(n)
-            return i == -1 ? false : (r ? (r.hang = true) : false)
-        },
-        unhang(n) {
-            const [, r ] = this._find(n)
-            return i == -1 ? false : (r ? (r.hang = false, true) : false)
-        },
-        rm(n) {
-            const [i] = this._find(n)
-            return i == -1 ? false : (R.read._rs.splice(i, 1), true)
-        }
-    },
-
-    go(clearNow, goCb, paleCb) {
-        if (clearNow) R.clear()
-        
-        let i = process.stdin
-        keypress(i)
-        i.on("keypress", (ch, info) => {
-            for (let f of R.read._rs) f(ch, info)
-        })
-        i.setRawMode(true)
-        i.resume()
-
-        R.read.add({
-            name: "exit",
+    go(goCb, paleCb) {
+        LK.add({
+            name: "Cc",
             ctrl: true, name: "c"
         }, () => {
-            R.pale(true)
+            R.pale()
             if (Is.fun(paleCb)) paleCb()
             process.exit()
         })
-        
+
         if (Is.fun(goCb)) goCb()
 
         return R
     },
-    pale(clearNow) { // wWw: be climbed away
+    pale() { // wWw: be climbed away
         R.reset()
-        if (clearNow) R.clear()
         process.stdout.write("\n")
         return R
     },
     sleep(time) {
         return new Promise(resolve => setTimeout(resolve, time))
-    },
-
-    _test() {
-        R
-        .go()
-        .clear()
-        .apos(0, 0)
-        .say("\n".repeat(10 - 1) + "<C-c> exit", {})
-        .astyl(RS.bold)
-        .afgc(RC.red)
-        .say("Ice")
-        .afgc(RC.blue)
-        .say("Lava")
-        .atemp(null, () => R
-            .afgc(RC.black)
-            .say(" in ")
-        )
-        .say("Terminal")
-        .pale()
     }
 }
 
@@ -238,16 +247,31 @@ class Zone {
         if (this.root) { this.rx = 0; this.ry = 0 }
     }
 
+    paint() {
+        for (let il = 0; il < this.len; il++)
+            for (let iw = 0; iw < this.hei; iw++) this.spot(" ", il, iw, null)
+
+        const b = this._border
+        for (let i in this._border) {
+            if (i === "all") continue
+            this.line(b[i].ch,
+                this.pos[RB[i].from[0]](RB[i].from[1], RB[i].from[2], false),
+                RB[i].to ? this.pos[RB[i].to[0]](RB[i].to[1], RB[i].to[2], false) : null,
+                b[i].Ra
+            )
+        }
+    }
+
     spot(ch, x, y, Ra) {
-        if (! this.pa && ! this.root) throw Error.em("Zone.spot", "Unmounted and non-root zone.")
+        if (! this.pa & ! this.root) throw Error.em("Zone.spot", "Unmounted and non-root zone.")
 
         ch  = Cc(ch, "Zone:.spot^ch").char().r
         x   = Cc(x, "Zone:.spot^x").num().pos0().lt(this.len).r
         y   = Cc(y, "Zone:.spot^y").num().pos0().lt(this.hei).r
         Ra  = Cc(Ra, "Zone:.spot^Ra#Render attribute").nullable().obj().r
 
-        const Ra_ = Object.assign({}, Ra, { x: this.rx + x, y: this.ry + y, bgc: this._bgc })
-        R.atemp(Ra_, () => R.say(ch))
+        Ra = Object.assign({ bgc: this._bgc }, Ra, { x: this.rx + x, y: this.ry + y })
+        R.atemp(Ra, () => R.say(ch))
     }
 
     line(ch, P1, P2, Ra) {
@@ -271,55 +295,37 @@ class Zone {
     }
 
     _bgc = null
-    bgcDft(c) {
-        this._bgc = Cc(c, "Zone:.bgcDft^c#color code").num().r
-
-        for (let il = 0; il < this.len; il++) // FIXME: it seems go wrong here...
-        for (let iw = 0; iw < this.hei; iw++)
-            this.spot(" ", il, iw, null)
+    get bgc() { return this._bgc }
+    set bgc(c) {
+        this._bgc = Cc(c, "Zone:.bgc^c#color code").num().r
     }
 
-    border(b, Ra) {
-        const _b = {
-            topLeft:        { ch: "╭", req: [ "topEdge", "leftEdge" ]                        ,
-                              from: [ "topLeft", 0, 0 ]                                     },
-            topEdge:        { ch: "─", d:   d => { d.topLeft.y++;    d.topRight.y++         },
-                              from: [ "topLeft", 1, 0 ],    to: [ "topRight", -1, 0 ]       },
-            topRight:       { ch: "╮", req: [ "topEdge", "rightEdge" ]                       ,
-                              from: [ "topRight", 0, 0 ]                                    },
-            leftEdge:       { ch: "│", d:   d => { d.topLeft.x++;    d.bottomLeft.x++       },
-                              from: [ "topLeft", 0, 1 ],    to: [ "bottomLeft", 0, -1 ]     },
-            rightEdge:      { ch: "│", d:   d => { d.topRight.x--;   d.bottomRight.x--      },
-                              from: [ "topRight", 0, 1 ],   to: [ "bottomRight", 0, -1 ]    },
-            bottomLeft:     { ch: "╰", req: [ "bottomEdge", "leftEdge" ]                     ,
-                              from: [ "bottomLeft", 0, 0 ]                                  },
-            bottomEdge:     { ch: "─", d:   d => { d.bottomLeft.y--; d.bottomRight.y--      },
-                              from: [ "bottomLeft", 1, 0 ], to: [ "bottomRight", -1, 0 ]    },
-            bottomRight:    { ch: "╯", req: [ "bottomEdge", "rightEdge" ]                    ,
-                              from: [ "bottomRight", 0, 0 ]                                 }
-        }
-        
-        for (let i in _b) {
+    _border = {}
+    get border() { return this._border }
+    set border(b) {
+        if (! Is.objR(b)) b = {}
+
+        for (let i in RB) {
+            if (i === "all") continue
             if (Is.nul(b[i])) continue
             if (Is.udf(b[i])) b[i] = {}
-            if (Is.empty(b[i].ch)) b[i].ch = _b[i].ch
+            if (Is.empty(b[i].ch)) b[i].ch = b.all?.ch ?? RB[i].ch
+            if (Is.empty(b[i].Ra)) b[i].Ra = b.all?.Ra ?? {}
         }
 
-        if (b && Is.obj(b)) for (let i in _b) {
+        for (let i in RB) {
+            if (i === "all") continue
+
             // Note: Make nearby empty edge(s) blank when some corner is not empty.
-            if (_b[i].req) {
+            if (RB[i].req) {
                 if (! b[i]?.ch) for (let j in [ 0, 1 ])
-                if (! b[_b[i].req[j]]?.ch) b[_b[i].req[j]].ch = " "
+                if (! b[RB[i].req[j]]?.ch) b[RB[i].req[j]].ch = " "
             }
-            // Note: Get border delta.
-            if (_b[i].d) _b[i].d(this.pos._bd)
-            // Note: Paint
-            this.line(b[i].ch,
-                this.pos[_b[i].from[0]](_b[i].from[1], _b[i].from[2], false),
-                _b[i].to ? this.pos[_b[i].to[0]](_b[i].to[1], _b[i].to[2], false) : null,
-                b[i].Ra ?? Ra
-            )
+            // Note: Set border delta.
+            if (RB[i].d) RB[i].d(this.pos._bd)
         }
+    
+        this._border = b
     }
 
     pos = {
@@ -381,7 +387,7 @@ class ZBoard extends Zone {
         super(true, hei ?? 100, len ?? 25)
         
         bgc = Cc(bgc, "ZBoard").lege(0, 255).r
-        this.bgcDft(bgc, true)
+        this.bgc = bgc
     }
 }
 
@@ -394,64 +400,85 @@ class ZBar extends Zone {
         if (this.stretch) this.on("mnt", () => this.len =
             this.pa.len - this.pa.pos._bd.topLeft.x + this.pa.pos._bd.topRight.x)
     }
-    
-    #t = ""
-    text(t, Ra) {
-        if (t) {
-            if (t.length > this.len) {
-                switch (this.overflow) {
-                    case "trunc":
-                        t = t.substring(0, this.len)
-                        break
-                    case "...":
-                        t = (t.substring(0, this.len - 3) + "...").substring(0, this.len)
-                        break
-                    case "error":
-                        throw Error.em("ZBar.text", `Text length: ${t.length}, overflows. ZBar length: ${this.len}`)
-                        break
-                    default:
-                        throw Error.unreachable()
-                }
+
+    paint() {
+        super.paint()
+
+        let { t, Ra } = this._text
+        if (t.length > this.len) {
+            switch (this.overflow) {
+                case "trunc":
+                    t = t.substring(0, this.len)
+                    break
+                case "...":
+                    t = (t.substring(0, this.len - 3) + "...").substring(0, this.len)
+                    break
+                case "error":
+                    throw Error.em("ZBar:.text", `Text length: ${t.length}, overflows. ZBar length: ${this.len}`)
             }
-            t = t + " ".repeat(this.len - t.length)
-            this.#t = t
-            for (let i = 0; i < t.length; i++)
-                this.spot(t[i], i, 0, Ra)
         }
-        else return this.#t
+        t += " ".repeat(this.len - t.length)
+        for (let i = 0; i < t.length; i++) this.spot(t[i], i, 0, Ra)
     }
+    
+    _text = {}
+    get text() { return this._text }
+    set text({ t, Ra }) {
+        t = Cc(t, "Zbar:.text^.t").str().r
+        this._text = { t, Ra }
+    }
+}
+
+class ZHintBar extends ZBar {
+    
 }
 
 // :: Main
 
-if (module === require.main) R.go(true, async() => {
-    const B = new ZBoard(60, 20, RC.snow)
-    B.border({
-        topLeft:        { ch: "┌" },
-        bottomRight:    { ch: "┘" }
-    }, { fgc: RC.toxic })
+if (module === require.main) R.go(async() => {
+    R.clear()
 
-    R.atemp(null, () => { R
-        .apos(B.pos.bottomLeft())
-        .abgc(RC.sky)
-        .say("<C-c> exit")
-        .apos(B.pos.bottomRight(-2))
-        .say("qwq")
-    })
+    const B = new ZBoard(60, 20, RC.snow)
+    B.border = {
+        all: { ch: " ", Ra: { bgc: RC.toxic } }
+    }
+    B.paint()
     
     const barTitle = new ZBar(1, true, "trunc")
     B.zone.mnt(barTitle, B.pos.topLeft())
 
-    barTitle.bgcDft(RC.cyan)
-    barTitle.text("Terminal Dashboard -- ForkKILLET", { fgc: RC.white })
+    barTitle.bgc = RC.cyan
+    barTitle.text = { t: "Terminal Dashboard -- ForkKILLET", Ra: { fgc: RC.white } }
+    barTitle.paint()
+
     R.apos(B.pos.bottomLeft(0, 1, false))
 
     await R.sleep(2000)
 
-    setInterval(() =>
-        barTitle.text("[Time] " + Date.fromTimeZone(+8).fommat("yyyy.mm.dd; HH:MM:SS", true), { fgc: RC.white }),
-    700)
-})
+    B.border = {
+        topLeft:        { ch: "┌" },
+        bottomRight:    { ch: "┘" },
+        all: { Ra: { fgc: RC.toxic, styl: RS.bold } }
+    }
+    B.paint()
+
+    setInterval(() => {
+        barTitle.text = {
+            t: "[Time] " + Date.fromTimeZone(+8).fommat("yyyy.mm.dd; HH:MM:SS", true),
+            Ra: { fgc: RC.white }
+        }
+        barTitle.paint()
+    }, 900)
+
+    LS.add({ signal: "SIGWINCH" }, () => {
+        R.clear()
+        B.paint()
+        barTitle.paint()
+    })
+}, () => R
+    .clear()
+    .apos(0, 0)
+)
 
 // :: Export
 
